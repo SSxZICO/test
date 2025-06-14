@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clicker Game</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .header {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .balance {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--tg-theme-button-color, #2481cc);
+            margin: 10px 0;
+        }
+        
+        .click-area {
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+            background: linear-gradient(45deg, var(--tg-theme-button-color, #2481cc), #4CAF50);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .click-area:active {
+            transform: scale(0.95);
+        }
+        
+        .stats {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .click-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--tg-theme-button-text-color, #ffffff);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+        
+        .counter {
+            font-size: 18px;
+            margin: 10px 0;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        
+        .earnings {
+            font-size: 16px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        
+        .top-players {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .top-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--tg-theme-button-color, #2481cc);
+        }
+        
+        .top-list {
+            text-align: left;
+            padding: 0 10px;
+        }
+        
+        .top-item {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .top-item:last-child {
+            border-bottom: none;
+        }
+        
+        .rank {
+            font-weight: bold;
+            color: var(--tg-theme-button-color, #2481cc);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="balance">Баланс: <span id="balance">0</span> 💎</div>
+        </div>
+        
+        <div class="stats">
+            <div class="counter">Кликов: <span id="clicks">0</span></div>
+            <div class="earnings">Заработано: <span id="earnings">0</span> монет</div>
+        </div>
+        
+        <div class="click-area" id="clickArea">
+            <div class="click-text">Нажми!</div>
+        </div>
+        
+        <div class="top-players">
+            <div class="top-title">🏆 Топ игроков</div>
+            <div class="top-list" id="topList">
+                Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        let clicks = 0;
+        let earnings = 0;
+        let balance = 0;
+        
+        tg.expand();
+        
+        // Получаем начальный баланс
+        tg.sendData('get_balance');
+        
+        const clickArea = document.getElementById('clickArea');
+        const clicksElement = document.getElementById('clicks');
+        const earningsElement = document.getElementById('earnings');
+        const balanceElement = document.getElementById('balance');
+        const topList = document.getElementById('topList');
+        
+        // Обработка сообщений от бота
+        tg.onEvent('message', function(event) {
+            const data = event.data.split('|');
+            if (data[0] === 'balance') {
+                balance = parseInt(data[1]);
+                balanceElement.textContent = balance;
+            } else if (data[0] === 'top') {
+                const top = JSON.parse(data[1]);
+                let html = '';
+                top.forEach((player, index) => {
+                    html += `<div class="top-item">
+                        <span class="rank">#${index + 1}</span> ${player.username}: ${player.balance} 💎
+                    </div>`;
+                });
+                topList.innerHTML = html;
+            }
+        });
+        
+        clickArea.addEventListener('click', () => {
+            clicks++;
+            earnings += 1; // 1 монета за клик
+            
+            clicksElement.textContent = clicks;
+            earningsElement.textContent = earnings;
+        });
+        
+        // Отправляем данные при закрытии приложения
+        tg.onEvent('viewportChanged', function(event) {
+            if (event.isStateStable && clicks > 0) {
+                tg.sendData(`clicks|${clicks}`);
+                clicks = 0;
+                earnings = 0;
+                clicksElement.textContent = '0';
+                earningsElement.textContent = '0';
+            }
+        });
+        
+        // Запрашиваем топ игроков
+        tg.sendData('get_top');
+    </script>
+</body>
+</html> 
