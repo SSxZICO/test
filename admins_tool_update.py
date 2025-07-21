@@ -14,7 +14,7 @@
 
 #    You should have received a copy of the GNU Affero General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
+# -*- coding: utf-8 -*-
 from .. import loader, utils, security
 import logging
 from datetime import timedelta, datetime
@@ -27,10 +27,10 @@ from telethon.tl.functions.messages import EditChatAdminRequest
 
 logger = logging.getLogger(__name__)
 
+
 @loader.tds
 class BanMod(loader.Module):
-    """Админтулс — ban, unban, kick, promote, demote, mute, unmute\nupdate module dev: @xduko"""
-
+    """Админтулс — ban, unban, kick, promote, demote, mute, unmute, pin, unpin"""
     strings = {
         "name": "AdminTools",
         "not_supergroup": "<b>Это не супергруппа!</b>",
@@ -50,7 +50,9 @@ class BanMod(loader.Module):
         "promoted": "<code>{}</code> <b>стал админом!</b> ID: <code>{}</code>",
         "demoted": "<code>{}</code> <b>лишён админки!</b> ID: <code>{}</code>",
         "muted": "<code>{}</code> <b>замьючен на {}</b> ID: <code>{}</code>",
-        "unmuted": "<code>{}</code> <b>размьючен</b> ID: <code>{}</code>"
+        "unmuted": "<code>{}</code> <b>размьючен</b> ID: <code>{}</code>",
+        "pin_none": "<b>Ответь на сообщение, чтобы закрепить!</b>",
+        "unpin_done": "<b>Сообщение откреплено.</b>"
     }
 
     async def client_ready(self, client, db):
@@ -88,7 +90,7 @@ class BanMod(loader.Module):
 
     @loader.group_admin_ban_users
     async def bancmd(self, message):
-        """Бан в чате"""
+        """Бан"""
         user = await self._get_user(message, self.strings("ban_none", message))
         if not user:
             return
@@ -97,12 +99,11 @@ class BanMod(loader.Module):
                 ChatBannedRights(until_date=None, view_messages=True)))
         except BadRequestError:
             return await utils.answer(message, self.strings("not_admin", message))
-        await self.allmodules.log("ban", group=message.chat_id, affected_uids=[user.id])
         await utils.answer(message, self.strings("banned", message).format(utils.escape_html(user.first_name), user.id))
 
     @loader.group_admin_ban_users
     async def unbancmd(self, message):
-        """Разбан в чате"""
+        """Разбан"""
         user = await self._get_user(message, self.strings("unban_none", message))
         if not user:
             return
@@ -111,12 +112,11 @@ class BanMod(loader.Module):
                 ChatBannedRights(until_date=None, view_messages=False)))
         except BadRequestError:
             return await utils.answer(message, self.strings("not_admin", message))
-        await self.allmodules.log("unban", group=message.chat_id, affected_uids=[user.id])
         await utils.answer(message, self.strings("unbanned", message).format(utils.escape_html(user.first_name), user.id))
 
     @loader.group_admin_ban_users
     async def kickcmd(self, message):
-        """Кикнуть из чата"""
+        """Кик"""
         user = await self._get_user(message, self.strings("kick_none", message))
         if not user:
             return
@@ -124,12 +124,11 @@ class BanMod(loader.Module):
             await self.client.kick_participant(message.chat_id, user.id)
         except BadRequestError:
             return await utils.answer(message, self.strings("not_admin", message))
-        await self.allmodules.log("kick", group=message.chat_id, affected_uids=[user.id])
         await utils.answer(message, self.strings("kicked", message).format(utils.escape_html(user.first_name), user.id))
 
     @loader.group_admin_add_admins
     async def promotecmd(self, message):
-        """Дать админку"""
+        """Админка"""
         args = utils.get_args(message)
         user = await self._get_user(message, self.strings("promote_none", message))
         if not user:
@@ -143,7 +142,6 @@ class BanMod(loader.Module):
             await self.client(EditAdminRequest(message.chat_id, user.id, rights, rank))
         except BadRequestError:
             return await utils.answer(message, self.strings("not_admin", message))
-        await self.allmodules.log("promote", group=message.chat_id, affected_uids=[user.id])
         await utils.answer(message, self.strings("promoted", message).format(utils.escape_html(user.first_name), user.id))
 
     @loader.group_admin_add_admins
@@ -160,12 +158,11 @@ class BanMod(loader.Module):
                 await self.client(EditChatAdminRequest(message.chat_id, user.id, False))
             except:
                 return await utils.answer(message, self.strings("not_admin", message))
-        await self.allmodules.log("demote", group=message.chat_id, affected_uids=[user.id])
         await utils.answer(message, self.strings("demoted", message).format(utils.escape_html(user.first_name), user.id))
 
     @loader.group_admin_ban_users
     async def mutecmd(self, message):
-        """Замьютить пользователя. Используй: .mute [реплай или id] [время: 10m, 2h, 7d, 1M]"""
+        """Мут (например: .mute @user 10m)"""
         args = utils.get_args(message)
         user = await self._get_user(message, self.strings("mute_none", message))
         if not user:
@@ -177,12 +174,12 @@ class BanMod(loader.Module):
                 ChatBannedRights(until_date=until, send_messages=True)))
         except BadRequestError:
             return await utils.answer(message, self.strings("not_admin", message))
-        await self.allmodules.log("mute", group=message.chat_id, affected_uids=[user.id])
-        await utils.answer(message, self.strings("muted", message).format(utils.escape_html(user.first_name), args[1] if len(args) > 1 else "навсегда", user.id))
+        duration = args[1] if len(args) > 1 else "навсегда"
+        await utils.answer(message, self.strings("muted", message).format(utils.escape_html(user.first_name), duration, user.id))
 
     @loader.group_admin_ban_users
     async def unmutecmd(self, message):
-        """Размьютить пользователя"""
+        """Размьютить"""
         user = await self._get_user(message, self.strings("unmute_none", message))
         if not user:
             return
@@ -191,5 +188,17 @@ class BanMod(loader.Module):
                 ChatBannedRights(until_date=None, send_messages=False)))
         except BadRequestError:
             return await utils.answer(message, self.strings("not_admin", message))
-        await self.allmodules.log("unmute", group=message.chat_id, affected_uids=[user.id])
         await utils.answer(message, self.strings("unmuted", message).format(utils.escape_html(user.first_name), user.id))
+
+    @loader.group_admin_pin_messages
+    async def pincmd(self, message):
+        """Закрепить сообщение (реплай)"""
+        if not message.is_reply:
+            return await utils.answer(message, self.strings("pin_none", message))
+        await self.client.pin_message(message.chat_id, message.reply_to_msg_id, notify=False)
+
+    @loader.group_admin_pin_messages
+    async def unpincmd(self, message):
+        """Открепить сообщение"""
+        await self.client.unpin_message(message.chat_id)
+        await utils.answer(message, self.strings("unpin_done", message))
